@@ -1,0 +1,207 @@
+@font-face {
+  font-family: "font";
+  src:
+    url("font.woff2") format("woff2"),
+    url("font.woff") format("woff"),
+    url("font.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --base-color: #c8c896;
+  --background-color: #2a2815;
+  --dark-background-color: #1c1800;
+}
+
+body {
+  user-select: none;
+  color: var(--base-color);
+  background-color: var(--dark-background-color);
+  font-family: "font", sans-serif;
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+canvas {
+  width: 100%;
+  /* height: 100%; */
+  z-index: -1;
+  border-radius: 2px;
+  image-rendering: crisp-edges;
+}
+
+.overlay {
+  z-index: 9;
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: var(--dark-background-color);
+  width: 100vw;
+  height: 100vh;
+  height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+
+  &:has(.hide) {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .overlay-button {
+    background-color: var(--dark-background-color);
+    border: 1px solid var(--base-color);
+    padding: 12px 24px;
+    border-radius: 2px;
+    color: var(--base-color);
+    cursor: pointer;
+  }
+}
+
+.canvas-border {
+  position: absolute;
+  content: "";
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  background-color: transparent;
+  border: 1px solid var(--base-color);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.canvas-track {
+  display: flex;
+  gap: 0;
+
+  .track-container {
+    width: 32px;
+    margin-right: 12px;
+    position: relative;
+
+    .track {
+      background-color: var(--base-color);
+      width: 1px;
+      height: 100%;
+      top: 0;
+      left: 50%;
+      margin: 0 auto;
+    }
+
+    .track-cursor {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      user-select: none;
+      z-index: 2;
+    }
+
+    .track-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      padding: 12px;
+      transform: translate(-50%, -50%);
+      background-color: var(--dark-background-color);
+      z-index: 0;
+      font-size: 12px;
+      text-transform: uppercase;
+      text-align: center;
+    }
+  }
+
+  .canvas-container {
+    position: relative;
+    height: calc(100% - 24px);
+    width: 100%;
+    flex-shrink: 1;
+    overflow: hidden;
+  }
+}
+
+#bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 60px;
+  transform: translateX(-30px) translateY(1px);
+  cursor: grab;
+  opacity: 0;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    background-color: red;
+    width: 1px;
+    height: 100%;
+  }
+}
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  padding: 12px;
+
+  .layout-header {
+    background-color: var(--background-color);
+    border: 1px solid var(--base-color);
+    border-radius: 2px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    width: 100%;
+  }
+
+  h1 {
+    font-size: 12px;
+    font-family: "font", sans-serif;
+  }
+
+  .controls {
+    border: 1px solid var(--base-color);
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    padding: 12px;
+    flex-grow: 1;
+  }
+
+  .knob {
+    position: relative;
+    pointer-events: all;
+    user-select: none;
+    width: 120px;
+
+    .knob-outside {
+      position: relative;
+
+      svg {
+        color: var(--base-color);
+      }
+    }
+
+    .knob-button {
+      user-select: none;
+      pointer-events: all;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 96px;
+      height: 96px;
+      transform: translate(-50%, -50%);
+    }
+  }
+}
