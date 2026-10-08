@@ -12,10 +12,7 @@ export function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max));
 }
 
-export function degreesToRadians(angle: number) {
-  return angle * (180 / Math.PI);
-}
-
+// http://stackoverflow.com/questions/22312841/waveshaper-node-in-webaudio-how-to-emulate-distortion
 export function makeDistortionCurve(amount: number) {
   var k = amount,
     n_samples = typeof sampleRate === "number" ? sampleRate : 44100,

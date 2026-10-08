@@ -1,10 +1,8 @@
 import * as constants from "./utils/constants";
-import {
-  remap,
-  clamp,
-  degreesToRadians,
-  makeDistortionCurve,
-} from "./utils/math";
+
+import { createKnob } from "./core/Knob";
+
+import { remap, clamp, makeDistortionCurve } from "./utils/math";
 
 const canvas = document.getElementById("canvas")! as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
@@ -14,17 +12,19 @@ const launchButton = document.getElementById("launch-button");
 const trackCursor = document.getElementById("track-cursor");
 const track = document.getElementById("track");
 
-const knob1 = document.getElementById("knob1") as HTMLDivElement;
-
 let audioContext: AudioContext | null = null;
 let playing = false;
 let analyser: AnalyserNode;
 let analyserBuffer: Uint8Array<ArrayBuffer>;
 let barsArray: number[];
 
-let isNotGrabbable = true;
+let mediaSourceNode: any;
+let mediaSourceNodeGainNode: any;
+let finish: any;
+let distortionGainNode: any;
+let distortionNode: any;
 
-let isRotating = false;
+let isNotGrabbable = true;
 
 let heightSize = constants.SCALE_HEIGHT;
 
@@ -37,64 +37,23 @@ let prevXKnob = 0;
 let prevYKnob = 0;
 let volume = 0;
 
-function volumeKnob(e: MouseEvent, knob: HTMLDivElement) {
-  if (knob) {
-    const w = knob?.clientWidth / 2;
-    const h = knob?.clientHeight / 2;
-
-    const knobPosition = knob.getBoundingClientRect();
-    const x = e.clientX - knobPosition.left;
-    const y = e.clientY - knobPosition.top;
-
-    const deltaX = w - x;
-    const deltaY = h - y;
-
-    const rad = Math.atan2(deltaY, deltaX);
-    let deg = degreesToRadians(rad);
-
-    prevXKnob = x;
-    prevYKnob = y;
-    return { deg, rad };
-  }
-}
-function rotate(e: MouseEvent) {
-  const volume = volumeKnob(e, knob1);
-  if (!volume) {
-    return;
-  }
-  const result = Math.floor(volume.deg - 90);
-  // console.log(result);
-  audioElement.volume = remap(clamp(result, -90, 90), -90, 90, 0, 1);
-  // console.log(audioElement.volume);
-  // console.log(((volume?.deg % 360) + 360) / 360);
-  // console.log(remap(result, -150, 0, 1, 0));
-  knob1.style.transform = `translate(-50%, -50%) rotate(${result}deg)`;
+function updateVolume(volume: number) {
+  audioElement.volume = volume;
 }
 
-function manageRotations() {
-  if (isRotating) {
-    endRotations();
-  } else {
-    startRotations();
-  }
-}
-function startRotations() {
-  isRotating = true;
-  window.addEventListener("mousemove", rotate);
-  window.addEventListener("mouseup", rotate);
+function updateDistortion(distortion: number) {
+  if (!audioContext) return;
+  var distortionNode = audioContext.createWaveShaper();
+  distortionNode.curve = makeDistortionCurve(remap(distortion, 0, 1, 0, 300));
+  mediaSourceNode.connect(distortionGainNode);
 }
 
-function endRotations() {
-  window.removeEventListener("mousemove", rotate);
-  window.removeEventListener("mouseup", rotate);
-  isRotating = false;
-}
-
-knob1?.addEventListener("pointerdown", manageRotations);
+createKnob(1, "volume", updateVolume);
+createKnob(2, "distortion", updateDistortion);
 
 addEventListener("resize", resize);
 
-document.body.onkeyup = function (e) {
+window.onkeyup = function (e) {
   if (e.key == " " || e.code == "Space") {
     if (playing) {
       pause();
@@ -239,7 +198,7 @@ function createEchoDelayEffect(audioContext: AudioContext) {
   delay.delayTime.value = 0.05;
   dryNode.gain.value = 1;
   wetNode.gain.value = 0;
-  filter.frequency.value = 1100;
+  filter.frequeny.value = 1100;
   filter.type = "highpass";
   return {
     apply() {
@@ -277,13 +236,37 @@ async function createReverb() {
   return convolver;
 }
 
+function createDistortion(
+  audioContext: AudioContext,
+  distortionAmount: number,
+) {
+  mediaSourceNodeGainNode = audioContext.createGain();
+  finish = audioContext.destination;
+
+  distortionGainNode = audioContext.createGain();
+  distortionNode = audioContext.createWaveShaper();
+
+  distortionNode.curve = makeDistortionCurve(distortionAmount);
+
+  mediaSourceNode.connect(distortionGainNode);
+  mediaSourceNodeGainNode.connect(distortionGainNode);
+  distortionGainNode.connect(distortionNode);
+  distortionNode.connect(finish);
+}
+
+// function deleteDistortions(audioContext: AudioContext) {
+//   mediaSourceNode.disconnect(distortionGainNode);
+//   mediaSourceNodeGainNode.disconnect(distortionGainNode);
+//   distortionGain.disconnect(finish);
+// }
+
 async function createContext() {
   audioContext = new AudioContext();
 
-  const mediaSourceNode = audioContext.createMediaElementSource(audioElement);
+  mediaSourceNode = audioContext.createMediaElementSource(audioElement);
   analyser = audioContext.createAnalyser();
   analyser.fftSize = 32768;
-  analyserBuffer = new Uint8Array(analyser.frequencyBinCount);
+  analyserBuffer = new Uint8Array(analyser.frequenyBinCount);
   analyser.getByteTimeDomainData(analyserBuffer);
 
   // const distortion = audioContext.createWaveShaper();
@@ -293,7 +276,7 @@ async function createContext() {
 
   // const echoDelay = createEchoDelayEffect(audioContext);
 
-  // echoDelay.apply();
+  // echoDelay.ap ply();
 
   audioElement.volume = 0.5;
 
@@ -301,24 +284,13 @@ async function createContext() {
   mediaSourceNode.connect(audioContext.destination);
 
   // distortion
-  var mediaSourceNodeGainNode = audioContext.createGain();
-  var finish = audioContext.destination;
-
-  var distortionGainNode = audioContext.createGain();
-  var distortionNode = audioContext.createWaveShaper();
-
-  distortionNode.curve = makeDistortionCurve(0);
-
-  mediaSourceNode.connect(distortionGainNode);
-  mediaSourceNodeGainNode.connect(distortionGainNode);
-  distortionGainNode.connect(distortionNode);
-  distortionNode.connect(finish);
+  createDistortion(audioContext, 200);
 
   // reverb
   let reverb = await createReverb();
   if (!reverb) return;
-  mediaSourceNode.connect(reverb);
-  reverb.connect(audioContext.destination);
+  // mediaSourceNode.connect(reverb);
+  // reverb.connect(audioContext.destination);
 
   if (bar) bar.style.opacity = "1";
   const trackRect = track?.getBoundingClientRect();
@@ -362,6 +334,8 @@ bar?.addEventListener("pointerdown", () => {
   pause();
 });
 
+let date = new Date();
+
 function renderCanvas() {
   ctx.fillStyle = "#0F0F00";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -374,6 +348,7 @@ function renderCanvas() {
       const indexNumber = Number(index);
 
       if (indexNumber % 8 === 0) {
+        const date = new Date();
         ctx.fillRect(
           indexNumber * responsiveBarsSpacingIndex,
           canvas.height / 2 - (barsArray[indexNumber] * heightSize) / 2,

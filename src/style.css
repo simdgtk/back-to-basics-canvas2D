@@ -20,6 +20,7 @@ body {
   color: var(--base-color);
   background-color: var(--dark-background-color);
   font-family: "font", sans-serif;
+  line-height: 1;
   max-height: 100vh;
   overflow: hidden;
 }
@@ -110,7 +111,7 @@ canvas {
       transform: translate(-50%, -50%);
       background-color: var(--dark-background-color);
       z-index: 0;
-      font-size: 12px;
+      font-size: 10px;
       text-transform: uppercase;
       text-align: center;
     }
@@ -180,9 +181,11 @@ canvas {
 
   .knob {
     position: relative;
-    pointer-events: all;
+    pointer-events: none;
     user-select: none;
+    touch-action: none;
     width: 120px;
+    transform: translateY(-7px);
 
     .knob-outside {
       position: relative;
@@ -201,6 +204,14 @@ canvas {
       width: 96px;
       height: 96px;
       transform: translate(-50%, -50%);
+    }
+
+    .knob-label {
+      position: absolute;
+      text-transform: uppercase;
+      font-size: 12px;
+      text-align: center;
+      width: 100%;
     }
   }
 }
