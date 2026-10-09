@@ -13,11 +13,14 @@ const launchButton = document.getElementById("launch-button");
 const trackCursor = document.getElementById("track-cursor");
 const track = document.getElementById("track");
 
-let audioContext: AudioContext | null = null;
+var audioContext: AudioContext | null = null;
 let playing = false;
 let analyser: AnalyserNode;
 let analyserBuffer: Uint8Array<ArrayBuffer>;
 let barsArray: number[];
+
+let synthBuffer: ArrayBuffer;
+var buffers = [];
 
 let fullDuration: number;
 let fullArray;
@@ -160,12 +163,91 @@ function dragElement(
 
 launchButton?.addEventListener("click", async () => {
   launchButton.classList.add("hide");
+  // await getSynthData();
+  await getSynthData("synth")
   await getData();
   audioContext || (await createContext());
   play();
   resize();
   tick();
 });
+
+// async function getSynthData() {
+//   const audioContext = new AudioContext();
+
+//   return fetch("audio/synth.ogg")
+//     .then((response) => {
+//       if (!response.ok) {
+//         throw new Error(`HTTP error, status = ${response.status}`);
+//       }
+//       return response.arrayBuffer();
+//     })
+//     .then((buffer) => {
+//       const synthBuffer = buffer
+//       const synthDelay = audioContext.createDelay(5.0);
+//       let synthSource;
+
+//       synthDelay.delayTime.value = 10;
+//       synthSource = audioContext.createBufferSource();
+//       console.log(synthBuffer);
+//       synthSource.buffer = synthBuffer;
+//       synthSource.loop = true;
+//       synthSource.start();
+//       synthSource.connect(synthDelay);
+//       synthDelay.connect(audioContext.destination);
+//       mediaSourceNode.connect(analyser);
+//       mediaSourceNode.connect(audioContext.destination);
+//       return audioContext.decodeAudioData(buffer);
+//     })
+//     .then((decodedData) => {
+//       const source = new AudioBufferSourceNode(audioContext);
+//       source.buffer = decodedData;
+//       fullDuration = decodedData.duration;
+//       source.connect(audioContext.destination);
+
+//       const float32Array = decodedData.getChannelData(0);
+//       let chunkSize = 500;
+//       let array = [],
+//         i = 0,
+//         length = float32Array.length;
+//       while (i < length) {
+//         array.push(
+//           float32Array
+//             .slice(i, (i += chunkSize))
+//             .reduce(function (total, value) {
+//               return Math.max(total, Math.abs(value));
+//             }),
+//         );
+//       }
+
+//       // barsArray = array;
+//       // return barsArray;
+//     });
+// }
+async function getSynthData(track) {
+  var request = new XMLHttpRequest();
+  request.open("GET", track + ".ogg", true);
+  request.responseType = "arraybuffer";
+
+  request.onload = function () {
+    if (audioContext)
+      audioContext.decodeAudioData(
+        request.response,
+        function (buffer) {
+          let myBuffer = buffer;
+          buffers.push(myBuffer);
+        },
+
+        function (e) {
+          "Error with decoding audio data" + e.err;
+        },
+      );
+  };
+
+  request.send();
+}
+
+getSynthData("synth");
 
 async function getData() {
   const audioContext = new AudioContext();
@@ -177,7 +259,9 @@ async function getData() {
       }
       return response.arrayBuffer();
     })
-    .then((buffer) => audioContext.decodeAudioData(buffer))
+    .then((buffer) => {
+      return audioContext.decodeAudioData(buffer);
+    })
     .then((decodedData) => {
       const source = new AudioBufferSourceNode(audioContext);
       source.buffer = decodedData;
@@ -275,9 +359,32 @@ function createDistortion(
 //   mediaSourceNodeGainNode.disconnect(distortionGainNode);
 //   distortionGain.disconnect(finish);
 // }
-function updateWaveHeight() {
-  fullArray = new Uint8Array(analyser.frequencyBinCount);
-  analyser.getByteFrequencyData(fullArray);
+// function updateWaveHeight() {
+//   fullArray = new Uint8Array(analyser.frequencyBinCount);
+//   analyser.getByteFrequencyData(fullArray);
+// }
+
+async function getSythData(track: string) {
+  var request = new XMLHttpRequest();
+  request.open("GET", "audio/" + track + ".ogg", true);
+  request.responseType = "arraybuffer";
+
+  request.onload = function () {
+    if (audioContext)
+      audioContext.decodeAudioData(
+        request.response,
+        function (buffer) {
+          let myBuffer = buffer;
+          buffers.push(myBuffer);
+        },
+
+        function (e) {
+          "Error with decoding audio data" + e.err;
+        },
+      );
+  };
+
+  request.send();
 }
 
 async function createContext() {
@@ -289,29 +396,36 @@ async function createContext() {
   analyserBuffer = new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteTimeDomainData(analyserBuffer);
 
-  // const distortion = audioContext.createWaveShaper();
-  // const gainNode = audioContext.createGain();
-  // const biquadFilter = audioContext.createBiquadFilter();
-  // const convolver = audioContext.createConvolver();
-
-  // const echoDelay = createEchoDelayEffect(audioContext);
-
-  // echoDelay.ap ply();
-
-  updateWaveHeight();
-
   audioElement.volume = 0.5;
-
-  mediaSourceNode.connect(analyser);
-  mediaSourceNode.connect(audioContext.destination);
 
   // distortion
   createDistortion(audioContext, 0);
 
   // reverb
   reverb = await createReverb();
-  // mediaSourceNode.connect(reverb);
-  // reverb.connect(audioContext.destination);
+
+  // filter
+  // const filter = audioContext.createBiquadFilter();
+  // filter.type = "lowpass";
+  // filter.frequency.setValueAtTime(200, audioContext.currentTime + 1);
+  // filter.Q.value = 20;
+  // mediaSourceNode.connect(filter);
+  // filter.connect(audioContext.destination);
+
+  // delay
+  const synthDelay = audioContext.createDelay(5.0);
+  let synthSource;
+
+  synthDelay.delayTime.value = 10;
+  synthSource = audioContext.createBufferSource();
+  console.log(buffers);
+  synthSource.buffer = buffers[0];
+  synthSource.loop = true;
+  synthSource.start();
+  synthSource.connect(synthDelay);
+  synthDelay.connect(audioContext.destination);
+  mediaSourceNode.connect(analyser);
+  mediaSourceNode.connect(audioContext.destination);
 
   if (bar) bar.style.opacity = "1";
   const trackRect = track?.getBoundingClientRect();
@@ -377,7 +491,8 @@ function renderCanvas() {
       const indexNumber = Number(index);
 
       if (indexNumber % 4 === 0) {
-        const distance = Math.max(Math.abs(currentTimeIndex - indexNumber), 10);
+        // const distance = Math.max(Math.abs(currentTimeIndex - indexNumber), 10);
+        const distance = 1000;
 
         ctx.fillRect(
           indexNumber * responsiveBarsSpacingIndex,
