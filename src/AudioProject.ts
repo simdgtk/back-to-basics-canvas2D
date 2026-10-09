@@ -31,8 +31,10 @@ let finish: any;
 let distortionGainNode: any;
 let distortionNode: any;
 
+let filter;
 let reverb: ConvolverNode | undefined;
 let isReverbed = false;
+let isLowpassFiltered = false;
 
 let isNotGrabbable = true;
 
@@ -67,9 +69,37 @@ function updateReverb(reverbValue: boolean) {
   }
 }
 
+function updateLowpassFilter(lowpassFilterValue: boolean) {
+  isLowpassFiltered =
+    lowpassFilterValue === isLowpassFiltered
+      ? !lowpassFilterValue
+      : lowpassFilterValue;
+
+  if (!filter || !audioContext) return;
+  if (isLowpassFiltered) {
+    mediaSourceNode.connect(filter);
+    filter.frequency.setValueAtTime(200, audioContext.currentTime + 1);
+    filter.connect(audioContext.destination);
+  } else {
+    mediaSourceNode.disconnect(filter);
+    filter.disconnect(audioContext.destination);
+    filter.frequency.setValueAtTime(200000, audioContext.currentTime + 1);
+  }
+}
+
+async function updateLowpassFrequency(lowpassAmountToUpdate: number) {
+  // await getData();
+  // if (!audioContext) return;
+  // distortionNode.curve = makeDistortionCurve(
+  //   remap(lowpassAmountToUpdate, 0, 1, 0, constants.MAX_DISTORTION),
+  // );
+}
+
 createKnob(1, "volume", 0.5, updateVolume);
 createKnob(2, "distortion", 0, updateDistortion);
 createPushButton(3, "reverb", updateReverb, isReverbed);
+createPushButton(4, "lowpass filter", updateLowpassFilter, isReverbed);
+createKnob(5, "lowpass frequency", 0.5, updateLowpassFrequency);
 
 addEventListener("resize", resize);
 
@@ -163,92 +193,29 @@ function dragElement(
 
 launchButton?.addEventListener("click", async () => {
   launchButton.classList.add("hide");
-  // await getSynthData();
-  await getSynthData();
-  await getData();
   audioContext || (await createContext());
+  // await getSynthData();
+  await getData();
   play();
   resize();
   tick();
 });
 
-// async function getSynthData() {
-//   const audioContext = new AudioContext();
-
-//   return fetch("audio/synth.ogg")
-//     .then((response) => {
-//       if (!response.ok) {
-//         throw new Error(`HTTP error, status = ${response.status}`);
-//       }
-//       return response.arrayBuffer();
-//     })
-//     .then((buffer) => {
-//       const synthBuffer = buffer
-//       const synthDelay = audioContext.createDelay(5.0);
-//       let synthSource;
-
-//       synthDelay.delayTime.value = 10;
-//       synthSource = audioContext.createBufferSource();
-//       console.log(synthBuffer);
-//       synthSource.buffer = synthBuffer;
-//       synthSource.loop = true;
-//       synthSource.start();
-//       synthSource.connect(synthDelay);
-//       synthDelay.connect(audioContext.destination);
-//       mediaSourceNode.connect(analyser);
-//       mediaSourceNode.connect(audioContext.destination);
-//       return audioContext.decodeAudioData(buffer);
-//     })
-//     .then((decodedData) => {
-//       const source = new AudioBufferSourceNode(audioContext);
-//       source.buffer = decodedData;
-//       fullDuration = decodedData.duration;
-//       source.connect(audioContext.destination);
-
-//       const float32Array = decodedData.getChannelData(0);
-//       let chunkSize = 500;
-//       let array = [],
-//         i = 0,
-//         length = float32Array.length;
-//       while (i < length) {
-//         array.push(
-//           float32Array
-//             .slice(i, (i += chunkSize))
-//             .reduce(function (total, value) {
-//               return Math.max(total, Math.abs(value));
-//             }),
-//         );
-//       }
-
-//       // barsArray = array;
-//       // return barsArray;
-//     });
-// }
 async function getSynthData() {
   let response = await fetch("audio/synth.ogg");
   let arraybuffer = await response.arrayBuffer();
 
-  if (audioContext)
-    audioContext.decodeAudioData(
-      arraybuffer,
-      function (buffer) {
-        let myBuffer = buffer;
-        buffers.push(myBuffer);
-      },
-
-      function (e) {
-        "Error with decoding audio data" + e.err;
-      },
-    );
-
-  synthBuffer = arraybuffer;
+  try {
+    if (!audioContext) return;
+    console.log("test");
+    const decodedArrayBuffer = await audioContext.decodeAudioData(arraybuffer);
+    buffers.push(decodedArrayBuffer);
+  } catch (e) {
+    console.log(e);
+  }
 }
 
-// getSynthData("synth");
-
 async function getData() {
-  const audioContext = new AudioContext();
-
   return fetch("audio/tenSeconds.wav")
     .then((response) => {
       if (!response.ok) {
@@ -285,42 +252,6 @@ async function getData() {
     });
 }
 
-function createEchoDelayEffect(audioContext: AudioContext) {
-  const delay = audioContext.createDelay(1);
-  const dryNode = audioContext.createGain();
-  const wetNode = audioContext.createGain();
-  const mixer = audioContext.createGain();
-  const filter = audioContext.createBiquadFilter();
-
-  delay.delayTime.value = 0.05;
-  dryNode.gain.value = 1;
-  wetNode.gain.value = 0;
-  filter.frequency.value = 1100;
-  filter.type = "highpass";
-  return {
-    apply() {
-      wetNode.gain.setValueAtTime(0.75, audioContext.currentTime);
-    },
-    discard() {
-      wetNode.gain.setValueAtTime(0, audioContext.currentTime);
-    },
-    isApplied() {
-      return wetNode.gain.value > 0;
-    },
-    placeBetween(inputNode: AudioNode, outputNode: AudioNode) {
-      inputNode.connect(delay);
-      delay.connect(wetNode);
-      wetNode.connect(filter);
-      filter.connect(delay);
-
-      inputNode.connect(dryNode);
-      dryNode.connect(mixer);
-      wetNode.connect(mixer);
-      mixer.connect(outputNode);
-    },
-  };
-}
-
 async function createReverb() {
   if (!audioContext) return;
 
@@ -331,6 +262,17 @@ async function createReverb() {
   convolver.buffer = await audioContext.decodeAudioData(arraybuffer);
 
   return convolver;
+}
+
+async function createLowpassFilter() {
+  if (!audioContext) return;
+
+  filter = audioContext.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(200, audioContext.currentTime + 1);
+  filter.Q.value = 20;
+  mediaSourceNode.connect(filter);
+  filter.connect(audioContext.destination);
 }
 
 function createDistortion(
@@ -351,39 +293,6 @@ function createDistortion(
   distortionNode.connect(finish);
 }
 
-// function deleteDistortions(audioContext: AudioContext) {
-//   mediaSourceNode.disconnect(distortionGainNode);
-//   mediaSourceNodeGainNode.disconnect(distortionGainNode);
-//   distortionGain.disconnect(finish);
-// }
-// function updateWaveHeight() {
-//   fullArray = new Uint8Array(analyser.frequencyBinCount);
-//   analyser.getByteFrequencyData(fullArray);
-// }
-
-async function getSythData(track: string) {
-  var request = new XMLHttpRequest();
-  request.open("GET", "audio/" + track + ".ogg", true);
-  request.responseType = "arraybuffer";
-
-  request.onload = function () {
-    if (audioContext)
-      audioContext.decodeAudioData(
-        request.response,
-        function (buffer) {
-          let myBuffer = buffer;
-          buffers.push(myBuffer);
-        },
-
-        function (e) {
-          "Error with decoding audio data" + e.err;
-        },
-      );
-  };
-
-  request.send();
-}
-
 async function createContext() {
   audioContext = new AudioContext();
 
@@ -402,27 +311,24 @@ async function createContext() {
   reverb = await createReverb();
 
   // filter
-  // const filter = audioContext.createBiquadFilter();
-  // filter.type = "lowpass";
-  // filter.frequency.setValueAtTime(200, audioContext.currentTime + 1);
-  // filter.Q.value = 20;
-  // mediaSourceNode.connect(filter);
-  // filter.connect(audioContext.destination);
+  await createLowpassFilter();
 
   // delay
-  const synthDelay = audioContext.createDelay(5.0);
+  await getSynthData();
+
+  const synthDelay = audioContext.createDelay(0.1);
   let synthSource;
 
-  synthDelay.delayTime.value = 10;
-  synthSource = audioContext.createBufferSource();
-  console.log(buffers[0]);
-  // synthSource.buffer = synthBuffer;
-  synthSource.loop = true;
-  synthSource.start();
-  synthSource.connect(synthDelay);
-  synthDelay.connect(audioContext.destination);
-  mediaSourceNode.connect(analyser);
-  mediaSourceNode.connect(audioContext.destination);
+  // synthDelay.delayTime.value = 10;
+  // synthSource = audioContext.createBufferSource();
+  // console.log(buffers);
+  // synthSource.buffer = buffers[0];
+  // synthSource.loop = true;
+  // synthSource.start();
+  // synthSource.connect(synthDelay);
+  // synthDelay.connect(audioContext.destination);
+  // mediaSourceNode.connect(analyser);
+  // mediaSourceNode.connect(audioContext.destination);
 
   if (bar) bar.style.opacity = "1";
   const trackRect = track?.getBoundingClientRect();
@@ -485,8 +391,7 @@ function renderCanvas() {
       const indexNumber = Number(index);
 
       if (indexNumber % 4 === 0) {
-        // const distance = Math.max(Math.abs(currentTimeIndex - indexNumber), 10);
-        const distance = 1000;
+        const distance = Math.max(Math.abs(currentTimeIndex - indexNumber), 10);
 
         ctx.fillRect(
           indexNumber * responsiveBarsSpacingIndex,
