@@ -164,7 +164,7 @@ function dragElement(
 launchButton?.addEventListener("click", async () => {
   launchButton.classList.add("hide");
   // await getSynthData();
-  await getSynthData("synth")
+  await getSynthData();
   await getData();
   audioContext || (await createContext());
   play();
@@ -224,30 +224,27 @@ launchButton?.addEventListener("click", async () => {
 //       // return barsArray;
 //     });
 // }
-async function getSynthData(track) {
-  var request = new XMLHttpRequest();
-  request.open("GET", track + ".ogg", true);
-  request.responseType = "arraybuffer";
+async function getSynthData() {
+  let response = await fetch("audio/synth.ogg");
+  let arraybuffer = await response.arrayBuffer();
 
-  request.onload = function () {
-    if (audioContext)
-      audioContext.decodeAudioData(
-        request.response,
-        function (buffer) {
-          let myBuffer = buffer;
-          buffers.push(myBuffer);
-        },
+  if (audioContext)
+    audioContext.decodeAudioData(
+      arraybuffer,
+      function (buffer) {
+        let myBuffer = buffer;
+        buffers.push(myBuffer);
+      },
 
-        function (e) {
-          "Error with decoding audio data" + e.err;
-        },
-      );
-  };
+      function (e) {
+        "Error with decoding audio data" + e.err;
+      },
+    );
 
-  request.send();
+  synthBuffer = arraybuffer;
 }
 
-getSynthData("synth");
+// getSynthData("synth");
 
 async function getData() {
   const audioContext = new AudioContext();
@@ -418,8 +415,8 @@ async function createContext() {
 
   synthDelay.delayTime.value = 10;
   synthSource = audioContext.createBufferSource();
-  console.log(buffers);
-  synthSource.buffer = buffers[0];
+  console.log(buffers[0]);
+  // synthSource.buffer = synthBuffer;
   synthSource.loop = true;
   synthSource.start();
   synthSource.connect(synthDelay);
@@ -468,9 +465,6 @@ bar?.addEventListener("pointerdown", () => {
   isNotGrabbable = !isNotGrabbable;
   pause();
 });
-
-const average = (array: number[]) =>
-  array.reduce((a, b) => a + b) / array.length;
 
 function renderCanvas() {
   ctx.fillStyle = "#0F0F00";
