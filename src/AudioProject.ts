@@ -98,8 +98,8 @@ async function updateLowpassFrequency(lowpassAmountToUpdate: number) {
 createKnob(1, "volume", 0.5, updateVolume);
 createKnob(2, "distortion", 0, updateDistortion);
 createPushButton(3, "reverb", updateReverb, isReverbed);
-createPushButton(4, "lowpass filter", updateLowpassFilter, isReverbed);
-createKnob(5, "lowpass frequency", 0.5, updateLowpassFrequency);
+// createPushButton(4, "lowpass filter", updateLowpassFilter, isReverbed);
+// createKnob(5, "lowpass frequency", 0.5, updateLowpassFrequency);
 
 addEventListener("resize", resize);
 
@@ -216,7 +216,7 @@ async function getSynthData() {
 }
 
 async function getData() {
-  return fetch("audio/tenSeconds.wav")
+  return fetch("audio/tenSeconds.mp3")
     .then((response) => {
       if (!response.ok) {
         throw new Error(`HTTP error, status = ${response.status}`);
@@ -311,7 +311,7 @@ async function createContext() {
   reverb = await createReverb();
 
   // filter
-  await createLowpassFilter();
+  // await createLowpassFilter();
 
   // delay
   await getSynthData();
