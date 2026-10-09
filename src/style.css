@@ -173,13 +173,14 @@ canvas {
 
   .controls {
     border: 1px solid var(--base-color);
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    display: flex;
+    gap: 24px;
     padding: 12px;
     flex-grow: 1;
   }
 
-  .knob {
+  .knob,
+  .push-button {
     position: relative;
     pointer-events: none;
     user-select: none;
@@ -187,7 +188,8 @@ canvas {
     width: 120px;
     transform: translateY(-7px);
 
-    .knob-outside {
+    .knob-outside,
+    .push-button-background {
       position: relative;
 
       svg {
@@ -195,7 +197,8 @@ canvas {
       }
     }
 
-    .knob-button {
+    .knob-button,
+    .push-button-button {
       user-select: none;
       pointer-events: all;
       position: absolute;
@@ -206,12 +209,50 @@ canvas {
       transform: translate(-50%, -50%);
     }
 
-    .knob-label {
+    .push-overlay {
+      pointer-events: none;
+      position: absolute;
+      background-color: rgba(129, 218, 117, 0.5);
+      top: 50%;
+      left: 50%;
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 3;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+
+      &.visible {
+        opacity: 1;
+      }
+    }
+
+    .knob-label,
+    .push-button-label {
       position: absolute;
       text-transform: uppercase;
       font-size: 12px;
       text-align: center;
       width: 100%;
+    }
+  }
+
+  .push-button {
+    width: 110px;
+    height: 110px;
+    pointer-events: none;
+
+    .push-button-button {
+      /* display: none; */
+      pointer-events: all;
+      width: 110px;
+      height: 110px;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .push-button-label {
+      margin-top: 12px;
     }
   }
 }

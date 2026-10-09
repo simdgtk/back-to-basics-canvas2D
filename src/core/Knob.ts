@@ -6,6 +6,7 @@ const controls = document.getElementById("controls");
 export function createKnob(
   index: number,
   label: string,
+  baseValue: number = 0.5,
   callback?: (value: number) => void,
 ) {
   const domValue = `
@@ -21,7 +22,7 @@ export function createKnob(
   const knob = document.getElementById(`knob${index}`) as HTMLDivElement;
 
   function onMove(e: MouseEvent) {
-    rotate(e, knob, callback);
+    rotate(e, knob, baseValue, callback);
   }
 
   function startRotations(e: MouseEvent) {
@@ -38,7 +39,7 @@ export function createKnob(
   knob.addEventListener("pointerdown", startRotations);
 }
 
-function volumeKnob(e: MouseEvent, knob: HTMLDivElement) {
+function volumeKnob(e: MouseEvent, knob: HTMLDivElement, baseValue: number) {
   const rect = knob.getBoundingClientRect();
   const x = rect.left + rect.width / 2;
   const y = rect.top + rect.height / 2;
@@ -59,10 +60,11 @@ function volumeKnob(e: MouseEvent, knob: HTMLDivElement) {
 function rotate(
   e: MouseEvent,
   knob: HTMLDivElement,
+  baseValue: number = 0.5,
   callback?: CallableFunction,
 ) {
-  const angle = volumeKnob(e, knob);
-  let progress;
+  const angle = volumeKnob(e, knob, baseValue);
+  let progress = baseValue;
   if (!angle) return;
 
   if (callback) {

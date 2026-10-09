@@ -1,6 +1,7 @@
 import * as constants from "./utils/constants";
 
 import { createKnob } from "./core/Knob";
+import { createPushButton } from "./core/PushButton";
 
 import { remap, clamp, makeDistortionCurve } from "./utils/math";
 
@@ -24,6 +25,8 @@ let finish: any;
 let distortionGainNode: any;
 let distortionNode: any;
 
+let isReverbed = false
+
 let isNotGrabbable = true;
 
 let heightSize = constants.SCALE_HEIGHT;
@@ -32,24 +35,25 @@ let heightSize = constants.SCALE_HEIGHT;
 let trackTop: number | undefined = 0;
 let trackBottom: number | undefined = 0;
 
-// knob
-let prevXKnob = 0;
-let prevYKnob = 0;
-let volume = 0;
-
 function updateVolume(volume: number) {
   audioElement.volume = volume;
 }
 
-function updateDistortion(distortion: number) {
+function updateDistortion(distortionAmountToUpdate: number) {
   if (!audioContext) return;
-  var distortionNode = audioContext.createWaveShaper();
-  distortionNode.curve = makeDistortionCurve(remap(distortion, 0, 1, 0, 300));
-  mediaSourceNode.connect(distortionGainNode);
+  distortionNode.curve = makeDistortionCurve(
+    remap(distortionAmountToUpdate, 0, 1, 0, constants.MAX_DISTORTION),
+  );
 }
 
-createKnob(1, "volume", updateVolume);
-createKnob(2, "distortion", updateDistortion);
+function updateReverb(reverbValue: boolean) {
+  isReverbed = reverbValue === isReverbed ? !reverbValue : reverbValue
+  console.log(isReverbed)
+}
+
+createKnob(1, "volume", 0.5, updateVolume);
+createKnob(2, "distortion", 0, updateDistortion);
+createPushButton(3, "reverb", updateReverb, isReverbed);
 
 addEventListener("resize", resize);
 
@@ -73,8 +77,6 @@ function dragElement(
     pos2 = 0,
     pos3 = 0,
     pos4 = 0;
-
-  let progress;
 
   element.onmousedown = dragMouseDown;
 
@@ -229,7 +231,7 @@ async function createReverb() {
 
   let convolver = audioContext.createConvolver();
 
-  let response = await fetch("audio/tenSeconds.wav");
+  let response = await fetch("audio/irHall.ogg");
   let arraybuffer = await response.arrayBuffer();
   convolver.buffer = await audioContext.decodeAudioData(arraybuffer);
 
@@ -284,13 +286,13 @@ async function createContext() {
   mediaSourceNode.connect(audioContext.destination);
 
   // distortion
-  createDistortion(audioContext, 200);
+  createDistortion(audioContext, 0);
 
   // reverb
   let reverb = await createReverb();
   if (!reverb) return;
-  // mediaSourceNode.connect(reverb);
-  // reverb.connect(audioContext.destination);
+  mediaSourceNode.connect(reverb);
+  reverb.connect(audioContext.destination);
 
   if (bar) bar.style.opacity = "1";
   const trackRect = track?.getBoundingClientRect();

@@ -5,5 +5,5 @@ export const BAR_WIDTH = 2;
 export const TRACK_CURSOR_HEIGHT = 32;
 export const MIN_DISTORTION = 0;
 export const BASE_DISTORTION = 0;
-export const MAX_DISTORTION = 400;
+export const MAX_DISTORTION = 150;
 
