@@ -19,13 +19,17 @@ let analyser: AnalyserNode;
 let analyserBuffer: Uint8Array<ArrayBuffer>;
 let barsArray: number[];
 
+let fullDuration: number;
+let fullArray;
+
 let mediaSourceNode: any;
 let mediaSourceNodeGainNode: any;
 let finish: any;
 let distortionGainNode: any;
 let distortionNode: any;
 
-let isReverbed = false
+let reverb: ConvolverNode | undefined;
+let isReverbed = false;
 
 let isNotGrabbable = true;
 
@@ -39,7 +43,8 @@ function updateVolume(volume: number) {
   audioElement.volume = volume;
 }
 
-function updateDistortion(distortionAmountToUpdate: number) {
+async function updateDistortion(distortionAmountToUpdate: number) {
+  await getData();
   if (!audioContext) return;
   distortionNode.curve = makeDistortionCurve(
     remap(distortionAmountToUpdate, 0, 1, 0, constants.MAX_DISTORTION),
@@ -47,8 +52,16 @@ function updateDistortion(distortionAmountToUpdate: number) {
 }
 
 function updateReverb(reverbValue: boolean) {
-  isReverbed = reverbValue === isReverbed ? !reverbValue : reverbValue
-  console.log(isReverbed)
+  isReverbed = reverbValue === isReverbed ? !reverbValue : reverbValue;
+
+  if (!reverb || !audioContext) return;
+  if (isReverbed) {
+    mediaSourceNode.connect(reverb);
+    reverb.connect(audioContext.destination);
+  } else {
+    mediaSourceNode.disconnect(reverb);
+    reverb.disconnect(audioContext.destination);
+  }
 }
 
 createKnob(1, "volume", 0.5, updateVolume);
@@ -168,6 +181,7 @@ async function getData() {
     .then((decodedData) => {
       const source = new AudioBufferSourceNode(audioContext);
       source.buffer = decodedData;
+      fullDuration = decodedData.duration;
       source.connect(audioContext.destination);
 
       const float32Array = decodedData.getChannelData(0);
@@ -200,7 +214,7 @@ function createEchoDelayEffect(audioContext: AudioContext) {
   delay.delayTime.value = 0.05;
   dryNode.gain.value = 1;
   wetNode.gain.value = 0;
-  filter.frequeny.value = 1100;
+  filter.frequency.value = 1100;
   filter.type = "highpass";
   return {
     apply() {
@@ -261,14 +275,18 @@ function createDistortion(
 //   mediaSourceNodeGainNode.disconnect(distortionGainNode);
 //   distortionGain.disconnect(finish);
 // }
+function updateWaveHeight() {
+  fullArray = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(fullArray);
+}
 
 async function createContext() {
   audioContext = new AudioContext();
 
   mediaSourceNode = audioContext.createMediaElementSource(audioElement);
   analyser = audioContext.createAnalyser();
-  analyser.fftSize = 32768;
-  analyserBuffer = new Uint8Array(analyser.frequenyBinCount);
+  analyser.fftSize = 8192;
+  analyserBuffer = new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteTimeDomainData(analyserBuffer);
 
   // const distortion = audioContext.createWaveShaper();
@@ -280,6 +298,8 @@ async function createContext() {
 
   // echoDelay.ap ply();
 
+  updateWaveHeight();
+
   audioElement.volume = 0.5;
 
   mediaSourceNode.connect(analyser);
@@ -289,10 +309,9 @@ async function createContext() {
   createDistortion(audioContext, 0);
 
   // reverb
-  let reverb = await createReverb();
-  if (!reverb) return;
-  mediaSourceNode.connect(reverb);
-  reverb.connect(audioContext.destination);
+  reverb = await createReverb();
+  // mediaSourceNode.connect(reverb);
+  // reverb.connect(audioContext.destination);
 
   if (bar) bar.style.opacity = "1";
   const trackRect = track?.getBoundingClientRect();
@@ -336,7 +355,8 @@ bar?.addEventListener("pointerdown", () => {
   pause();
 });
 
-let date = new Date();
+const average = (array: number[]) =>
+  array.reduce((a, b) => a + b) / array.length;
 
 function renderCanvas() {
   ctx.fillStyle = "#0F0F00";
@@ -344,18 +364,27 @@ function renderCanvas() {
 
   if (barsArray) {
     const responsiveBarsSpacingIndex = canvas.width / barsArray.length;
+    const currentTimeIndex = remap(
+      audioElement.currentTime,
+      0,
+      audioElement.duration,
+      0,
+      barsArray.length,
+    );
 
     for (let index in barsArray) {
       ctx.fillStyle = "#3dff5067";
       const indexNumber = Number(index);
 
-      if (indexNumber % 8 === 0) {
-        const date = new Date();
+      if (indexNumber % 4 === 0) {
+        const distance = Math.max(Math.abs(currentTimeIndex - indexNumber), 10);
+
         ctx.fillRect(
           indexNumber * responsiveBarsSpacingIndex,
-          canvas.height / 2 - (barsArray[indexNumber] * heightSize) / 2,
+          canvas.height / 2 -
+            (barsArray[indexNumber] * heightSize * distance) / 1000 / 2,
           constants.BAR_WIDTH,
-          barsArray[indexNumber] * heightSize,
+          (barsArray[indexNumber] * heightSize * distance) / 1000,
         );
       } else {
         continue;
